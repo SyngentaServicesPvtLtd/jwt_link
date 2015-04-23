@@ -23,13 +23,17 @@ function jwt_link_help($path, $arg) {
   return $output;
 }
 
-/*#####################################################
-* Implementation of hook_perm
-* ####################################################
-*/
-function jwt_link_perm() {
+/**
+ * Implements hook_permission().
+ */
+function jwt_link_permission() {
   //setting module permissions
-  return array('access jwtlink settings');
+  return array(
+    'access jwtlink settings' => array(
+      'title'       => t('access jwtlink settings'),
+      'description' => t('Access JWT Link Settings'),
+    ),
+  );
 }
 
 /*#####################################################
@@ -38,7 +42,7 @@ function jwt_link_perm() {
 */
 function jwt_link_menu() {
   $items = array();
-  $items['admin/build/jwtlink'] = array(
+  $items['admin/config/people/jwtlink'] = array(
     'title'            => "JWT Link",
     'description'      => "Various field for generating JWT Encoded URL.",
     'page callback'    => 'drupal_get_form',
@@ -162,68 +166,69 @@ function jwt_link_url($iss, $sub, $aud, $alg, $key, $link_url, $link_arg) {
   return "{$link_url}?{$link_arg}={$jwt}";
 }
 
-/*#####################################################
-* Implementation of hook_block
-* ####################################################
-*/
-function jwt_link_block($op = 'list', $delta = 0, $edit = array()) {
-  // set up an empty array which will contain the block contents
-  $block = array();
+/**
+ * Implements hook_block_info().
+ * @return mixed
+ */
+function jwt_link_block_info(){
+  $blocks['jwt_link'] = array(
+    'info' => t('JWT URL Link'), //The name that will appear in the block list.
+    'cache' => DRUPAL_CACHE_PER_ROLE, //Default
+  );
 
-  switch ($op) {
-    case "list":
-      // Generate listing of blocks from this module, for the admin/block page
-      $block[0]["info"] = t('JWT URL Link');
-      break;
+  return $blocks;
+}
 
-    case "view":
-      $block_content = "ANON CANNOT ACCESS";
-      //GETTING DATA
+/**
+ * Implements hook_block_view().
+ * @param string $delta
+ * @return mixed
+ */
+function jwt_link_block_view($delta = '') {
+  switch($delta){
+    case 'jwt_link':
+      if(user_access('access content')){
+        $block_content = "ANON CANNOT ACCESS";
+        //GETTING DATA
 
-      $anon = "anon";
+        $anon = "anon";
 
-      //(1) REQUIRED::ISSUER
-      $iss = variable_get('jwt_link_iss', '');
-
-
-      //(2) REQUIRED::SUBJECT
-      //IF ITS AN OBJ IT LOADED FROM DREW PAUL :: ANON IF NOT OBJ OR NAME IS NULL
-
-      $sub = _user_info(variable_get('jwt_user_info', 'username'), $anon);
-
-      //(3) REQUIRED::AUDIENCE / AUTHORIZATION SERVER
-      $aud = variable_get('jwt_link_aud', '');
+        //(1) REQUIRED::ISSUER
+        $iss = variable_get('jwt_link_iss', '');
 
 
-      //WHERE TO GO, NOT REQUIRED IN FN
-      $link_url = variable_get('jwt_link_url', '');
-      $link_text = variable_get('jwt_link_text', 'Visit Site...');
-      $link_arg = variable_get('jwt_link_arg', 'token');
+        //(2) REQUIRED::SUBJECT
+        //IF ITS AN OBJ IT LOADED FROM DREW PAUL :: ANON IF NOT OBJ OR NAME IS NULL
+
+        $sub = _user_info(variable_get('jwt_user_info', 'username'), $anon);
+
+        //(3) REQUIRED::AUDIENCE / AUTHORIZATION SERVER
+        $aud = variable_get('jwt_link_aud', '');
 
 
-      //KEY, NOT REQUIRED IN FN
-      $key = variable_get('jwt_link_key', '');
+        //WHERE TO GO, NOT REQUIRED IN FN
+        $link_url = variable_get('jwt_link_url', '');
+        $link_text = variable_get('jwt_link_text', 'Visit Site...');
+        $link_arg = variable_get('jwt_link_arg', 'token');
 
-      //ALG, NOT REQUIRED IN FN
-      $alg = variable_get('jwt_link_alg', 'HS256');
 
-      if (!($sub == $anon)) {
-        $jwt_url = @jwt_link_url($iss, $sub, $aud, $alg, $key, $link_url, $link_arg);
-        $block_content = l($link_text, $jwt_url);
+        //KEY, NOT REQUIRED IN FN
+        $key = variable_get('jwt_link_key', '');
+
+        //ALG, NOT REQUIRED IN FN
+        $alg = variable_get('jwt_link_alg', 'HS256');
+
+        if (!($sub == $anon)) {
+          $jwt_url = @jwt_link_url($iss, $sub, $aud, $alg, $key, $link_url, $link_arg);
+          $block_content = l($link_text, $jwt_url);
+        }
+        //END GETTING DATA
+
+        $block['content'] = $block_content;
       }
-      //END GETTING DATA
-
-      $block['content'] = $block_content;
-      break;
-
-    case "save":
-      break;
-
-    case "configure":
-      break;
+      return $block;
   }
 
-  return $block;
 }
 
 /**
