@@ -57,6 +57,17 @@ function jwt_link_menu() {
 function jwt_link_admin() {
   $form = array();
 
+  $form['jwt_user_info'] = array(
+    '#title'         => t("Username or Email Auth"),
+    '#type'          => 'select',
+    '#options'       => array(
+      'username' => 'User Name',
+      'email'    => 'Email',
+    ),
+    '#default_value' => variable_get('jwt_user_info', 'username'),
+    '#description'   => "Authentication with Drupal username or email address.",
+  );
+
   $form['jwt_link_iss'] = array(
     '#type'          => 'textfield',
     '#title'         => "Issuer",
@@ -169,9 +180,7 @@ function jwt_link_block($op = 'list', $delta = 0, $edit = array()) {
       $block_content = "ANON CANNOT ACCESS";
       //GETTING DATA
 
-      global $user;
       $anon = "anon";
-
 
       //(1) REQUIRED::ISSUER
       $iss = variable_get('jwt_link_iss', '');
@@ -179,7 +188,8 @@ function jwt_link_block($op = 'list', $delta = 0, $edit = array()) {
 
       //(2) REQUIRED::SUBJECT
       //IF ITS AN OBJ IT LOADED FROM DREW PAUL :: ANON IF NOT OBJ OR NAME IS NULL
-      $sub = is_object($user) ? (is_null($user->name) ? $anon : $user->name) : $anon;
+
+      $sub = _user_info(variable_get('jwt_user_info', 'username'), $anon);
 
       //(3) REQUIRED::AUDIENCE / AUTHORIZATION SERVER
       $aud = variable_get('jwt_link_aud', '');
@@ -214,4 +224,24 @@ function jwt_link_block($op = 'list', $delta = 0, $edit = array()) {
   }
 
   return $block;
+}
+
+/**
+ * @param $sub_type
+ * @param $anon
+ * @return mixed
+ */
+function _user_info($sub_type, $anon) {
+  global $user;
+  switch ($sub_type) {
+    case 'username':
+      return is_object($user) ? (is_null($user->name) ? $anon : $user->name) : $anon;
+      break;
+    case 'email':
+      return is_object($user) ? (is_null($user->mail) ? $anon : $user->mail) : $anon;
+      break;
+    default:
+      return is_object($user) ? (is_null($user->name) ? $anon : $user->name) : $anon;
+      break;
+  }
 }
