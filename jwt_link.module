@@ -6,7 +6,7 @@
 
 //CHECK THE README FOR INFORMATION ABOUT THIS REQUIRE LINE
 require_once 'JWT/Authentication/JWT.php';
-
+use \Firebase\JWT\JWT;
 
 /*#####################################################
 * Implementation of hook_help
