@@ -1,3 +1,4 @@
-name = "JWT Link"
-description = "Creates a JWT link with stored parameters. Can also be called directly by other modules."
-core = 6.x
+name = JWT Link
+description = Creates a JWT link with configured parameters.
+core = 7.x
+dependencies[] = token

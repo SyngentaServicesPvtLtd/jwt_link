@@ -1,217 +1,254 @@
 <?php
-/*
-* NUMBERED ITEMS (n) BASED ON
-* https://tools.ietf.org/html/draft-ietf-oauth-jwt-bearer-12#section-1.2
-*/
 
-//CHECK THE README FOR INFORMATION ABOUT THIS REQUIRE LINE
+/**
+ * @file
+ * NUMBERED ITEMS (n) BASED ON
+ * https://tools.ietf.org/html/draft-ietf-oauth-jwt-bearer-12#section-1.2.
+ */
+
+// Check the Readme for Information About this.
 require_once 'JWT/Authentication/JWT.php';
 use \Firebase\JWT\JWT;
 
-/*#####################################################
-* Implementation of hook_help
-* ####################################################
-*/
+/**
+ * Implements hook_help().
+ */
 function jwt_link_help($path, $arg) {
-  //creating a help hook
-  $output = "";
+  $output = '';
   switch ($path) {
-    case "admin/help#jwt_link":
-      $output = "<p>" . t("Provides JWT encoded URL.") . "</p>";
+    case 'admin/help#jwt_link':
+      $output = '<p>' . t('Provides JWT encoded URL.') . '</p>';
       break;
   }
   return $output;
 }
 
-/*#####################################################
-* Implementation of hook_perm
-* ####################################################
-*/
-function jwt_link_perm() {
-  //setting module permissions
-  return array('access jwtlink settings');
+/**
+ * Implements hook_permission().
+ */
+function jwt_link_permission() {
+  return array(
+    'access jwtlink settings' => array(
+      'title' => t('access jwtlink settings'),
+      'description' => t('Access JWT Link Settings'),
+    ),
+  );
 }
 
-/*#####################################################
-* Implementation of hook_menu
-* ####################################################
-*/
+/**
+ * Implements hook_menu().
+ */
 function jwt_link_menu() {
   $items = array();
-  $items['admin/build/jwtlink'] = array(
-    'title'            => "JWT Link",
-    'description'      => "Various field for generating JWT Encoded URL.",
-    'page callback'    => 'drupal_get_form',
-    'page arguments'   => array('jwt_link_admin'),
+  $items['admin/config/people/jwtlink'] = array(
+    'title' => 'JWT Link',
+    'description' => 'Various field for generating JWT Encoded URL.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('jwt_link_admin'),
     'access arguments' => array('access jwtlink settings'),
-    'type'             => MENU_NORMAL_ITEM,
+    'type' => MENU_NORMAL_ITEM,
   );
 
   return $items;
 }
 
-/*#####################################################
-* Implementation of hook_admin
-* ####################################################
-*/
+/**
+ * Implements hook_token_info().
+ */
+function jwt_link_token_info() {
+  return array(
+    'types' => array(
+      'jwt' => array(
+        'name' => t('JWT'),
+        'description' => t('Tokens used for JWT.'),
+      ),
+    ),
+    'tokens' => array(
+      'jwt' => array(
+        'jwt-link' => array(
+          'name' => t('JWT link'),
+          'description' => t('Placeholder for JWT encoded url.'),
+        ),
+        'jwt-token' => array(
+          'name' => t('JWT token'),
+          'description' => t('Placeholder for JWT encoded token only.'),
+        ),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_tokens().
+ */
+function jwt_link_tokens($type, $tokens, array $data = array(), array $options = array()) {
+  $replacements = array();
+  if ($type === 'jwt') {
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+        case 'jwt-link':
+          if (user_is_logged_in()) {
+            $link_text = variable_get('jwt_link_text', t('Visit Site...'));
+            $jwt_url = jwt_link_url();
+            $jwt_encoded_url = l($link_text, $jwt_url['jwt_encoded_url'], array('attributes' => array('target' => '_blank')));
+          }
+          $replacements[$original] = $jwt_encoded_url;
+          break;
+
+        case 'jwt-token':
+          if (user_is_logged_in()) {
+            $jwt_token = jwt_link_url();
+            $jwt_encoded_token = $jwt_token['jwt_encoded_token'];
+          }
+          $replacements[$original] = $jwt_encoded_token;
+          break;
+
+        default:
+      }
+    }
+  }
+  return $replacements;
+}
+
+/**
+ * Implements hook_admin().
+ */
 function jwt_link_admin() {
   $form = array();
 
-  $form['jwt_link_iss'] = array(
-    '#type'          => 'textfield',
-    '#title'         => "Issuer",
-    '#default_value' => variable_get('jwt_link_iss', ''),
-    '#size'          => 100,
-    '#description'   => "Site URL issuing the token. It will very likely be this site. E.g. http://mysite.com",
+  $form['jwt_link_token_values'] = array(
+    '#title' => t('Token value'),
+    '#type' => 'textarea',
+    '#default_value' => variable_get('jwt_link_token_values', ''),
+    '#description' => 'The possible values this field can contain. Enter one value per line, in the format key|value. This field supports tokens.',
   );
 
-  $form['jwt_link_aud'] = array(
-    '#type'          => 'textfield',
-    '#title'         => "Audience / Authorization Server",
-    '#default_value' => variable_get('jwt_link_aud', ''),
-    '#size'          => 100,
-    '#description'   => "Site URL authorizing the generated token the token. Remote server e.g. http://siteauthorizingthis.com",
-  );
+  if (module_exists('token')) {
+    $form['jwt_link_browse_token'] = array(
+      '#theme' => 'token_tree',
+      '#token_types' => 'all',
+      '#dialog' => TRUE,
+    );
+  }
 
   $form['jwt_link_text'] = array(
-    '#type'          => 'textfield',
-    '#title'         => "Link Text",
+    '#type' => 'textfield',
+    '#title' => 'Link Text',
     '#default_value' => variable_get('jwt_link_text', 'Visit Site...'),
-    '#size'          => 100,
-    '#description'   => "A nice message for the link rather that outputting the long URL.",
+    '#size' => 100,
+    '#description' => 'A nice message for the link rather that outputting the long URL.',
   );
 
   $form['jwt_link_url'] = array(
-    '#type'          => 'textfield',
-    '#title'         => "URL / Link To",
+    '#type' => 'textfield',
+    '#title' => 'URL / Link To',
     '#default_value' => variable_get('jwt_link_url', ''),
-    '#size'          => 100,
-    '#description'   => "Site URL to link to. It will likely be the same domain of the Audience / Authorization server e.g. http://siteauthorizingthis.com/some/path",
+    '#size' => 100,
+    '#description' => 'Site URL to link to. It will likely be the same domain of the Audience / Authorization server e.g. http://siteauthorizingthis.com/some/path',
   );
 
   $form['jwt_link_arg'] = array(
-    '#type'          => 'textfield',
-    '#title'         => "URL Token Argument",
+    '#type' => 'textfield',
+    '#title' => 'URL Token Argument',
     '#default_value' => variable_get('jwt_link_arg', 'token'),
-    '#size'          => 100,
-    '#description'   => "Token variable name for URL. Typically 'jwt' or 'token'.",
+    '#size' => 100,
+    '#description' => 'Token variable name for URL. Typically "jwt" or "token".',
   );
 
   $form['jwt_link_key'] = array(
-    '#type'          => 'textfield',
-    '#title'         => "Key",
+    '#type' => 'textfield',
+    '#title' => 'Key',
     '#default_value' => variable_get('jwt_link_key', ''),
-    '#size'          => 100,
-    '#description'   => "Some key or random string for encrypting the data.",
+    '#size' => 100,
+    '#description' => 'Some key or random string for encrypting the data.',
   );
 
   $form['jwt_link_alg'] = array(
-    '#title'         => t("Encryption Algorithm"),
-    '#type'          => 'select',
-    '#options'       => array(
+    '#title' => t('Encryption Algorithm'),
+    '#type' => 'select',
+    '#options' => array(
       'HS256' => 'HS256',
       'HS512' => 'HS512',
       'HS384' => 'HS384',
     ),
     '#default_value' => variable_get('jwt_link_alg', 'HS256'),
-    '#description'   => "Which algorithm for encryption. Default HS256.",
+    '#description' => 'Which algorithm for encryption. Default HS256.',
   );
-
 
   return system_settings_form($form);
 }
 
-
-/***
- * @param $iss
- * @param $sub
- * @param $aud
- * @param null $link_url
- * @return string
+/**
+ * Method to generate jwt url.
  */
-function jwt_link_url($iss, $sub, $aud, $alg, $key, $link_url, $link_arg) {
-  //(4) REQUIRED::EXPIRATION
-  //(5) OPTIONAL::ISSUED AT
-  //(6) OPTIONAL::NOT BEFORE
-  $nbf = $iat = time();
-  $exp = $nbf + (60 * 3); //3 MINUTE EXPIRATION
+function jwt_link_url() {
+  $link_url = variable_get('jwt_link_url', '');
+  $link_arg = variable_get('jwt_link_arg', 'token');
+  $key = variable_get('jwt_link_key', '');
+  $alg = variable_get('jwt_link_alg', 'HS256');
 
+  $nbf = $iat = time();
+  // 3 minutes expiration.
+  $exp = $nbf + (60 * 3);
+
+  // Default tokens.
   $token = array(
-    "iss" => $iss,
-    "sub" => $sub,
-    "aud" => $aud,
     "exp" => $exp,
-    "iat" => $iat,
-    "nbf" => $nbf,
   );
 
-  //JWT CAN BE DECODED TO FOR DEBUG/SANITY LOOK AT CLASS
-  $jwt = JWT::encode($token, $key, $alg); //COULD PASS 4th PARAM of KEYID
-
-  return "{$link_url}?{$link_arg}={$jwt}";
-}
-
-/*#####################################################
-* Implementation of hook_block
-* ####################################################
-*/
-function jwt_link_block($op = 'list', $delta = 0, $edit = array()) {
-  // set up an empty array which will contain the block contents
-  $block = array();
-
-  switch ($op) {
-    case "list":
-      // Generate listing of blocks from this module, for the admin/block page
-      $block[0]["info"] = t('JWT URL Link');
-      break;
-
-    case "view":
-      $block_content = "ANON CANNOT ACCESS";
-      //GETTING DATA
-
-      global $user;
-      $anon = "anon";
-
-
-      //(1) REQUIRED::ISSUER
-      $iss = variable_get('jwt_link_iss', '');
-
-
-      //(2) REQUIRED::SUBJECT
-      //IF ITS AN OBJ IT LOADED FROM DREW PAUL :: ANON IF NOT OBJ OR NAME IS NULL
-      $sub = is_object($user) ? (is_null($user->name) ? $anon : $user->name) : $anon;
-
-      //(3) REQUIRED::AUDIENCE / AUTHORIZATION SERVER
-      $aud = variable_get('jwt_link_aud', '');
-
-
-      //WHERE TO GO, NOT REQUIRED IN FN
-      $link_url = variable_get('jwt_link_url', '');
-      $link_text = variable_get('jwt_link_text', 'Visit Site...');
-      $link_arg = variable_get('jwt_link_arg', 'token');
-
-
-      //KEY, NOT REQUIRED IN FN
-      $key = variable_get('jwt_link_key', '');
-
-      //ALG, NOT REQUIRED IN FN
-      $alg = variable_get('jwt_link_alg', 'HS256');
-
-      if (!($sub == $anon)) {
-        $jwt_url = @jwt_link_url($iss, $sub, $aud, $alg, $key, $link_url, $link_arg);
-        $block_content = l($link_text, $jwt_url);
-      }
-      //END GETTING DATA
-
-      $block['content'] = $block_content;
-      break;
-
-    case "save":
-      break;
-
-    case "configure":
-      break;
+  $token_values = variable_get('jwt_link_token_values');
+  if (!empty($token_values)) {
+    $configured_token = array();
+    $token_values = explode("\n", $token_values);
+    foreach ($token_values as $item) {
+      list($token_key, $value) = explode('|', $item);
+      $token_item = token_replace($value);
+      $configured_token[trim($token_key)] = trim($token_item);
+    }
+    $token = array_merge($configured_token, $token);
   }
 
+  // Generate encoded token.
+  $jwt_encoded_token = JWT::encode($token, $key, $alg);
+  $jwt_encoded_url = "{$link_url}?{$link_arg}={$jwt_encoded_token}";
+
+  $jwt = array(
+    'jwt_encoded_token' => $jwt_encoded_token,
+    'jwt_encoded_url' => $jwt_encoded_url,
+  );
+  return $jwt;
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function jwt_link_block_info() {
+  $blocks['jwt_link'] = array(
+    'info' => t('JWT URL Link'),
+    'cache' => DRUPAL_CACHE_PER_ROLE,
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function jwt_link_block_view($delta = '') {
+  switch ($delta) {
+    case 'jwt_link':
+      if (user_access('access content')) {
+        if (user_is_logged_in()) {
+          $link_text = variable_get('jwt_link_text', t('Visit Site...'));
+          $jwt_url = jwt_link_url();
+          $block_content = l($link_text, $jwt_url['jwt_encoded_url'], array('attributes' => array('target' => '_blank')));
+        }
+        else {
+          $block_content = t("Access denied");
+        }
+      }
+      $block['content'] = $block_content;
+      break;
+  }
   return $block;
 }
