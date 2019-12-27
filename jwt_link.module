@@ -175,6 +175,16 @@ function jwt_link_admin() {
     '#description' => 'Which algorithm for encryption. Default HS256.',
   );
 
+  $form['jwt_link_expiration'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Token expiration',
+    '#default_value' => variable_get('jwt_link_expiration', 3),
+    '#size' => 1,
+    '#maxlength' => 2,
+    '#field_suffix' => 'minutes',
+    '#description' => 'The amount of time until the token expires.',
+  );
+
   return system_settings_form($form);
 }
 
@@ -187,9 +197,8 @@ function jwt_link_url() {
   $key = variable_get('jwt_link_key', '');
   $alg = variable_get('jwt_link_alg', 'HS256');
 
-  $nbf = $iat = time();
-  // 3 minutes expiration.
-  $exp = $nbf + (60 * 3);
+  // Token expiration.
+  $exp = time() + (60 * variable_get('jwt_link_expiration'));
 
   // Default tokens.
   $token = array(
@@ -252,3 +261,4 @@ function jwt_link_block_view($delta = '') {
   }
   return $block;
 }
+
