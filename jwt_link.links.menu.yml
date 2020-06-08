@@ -1,0 +1,6 @@
+jwt_link.jwt_config_form:
+  title: 'JWT Link Configuration'
+  route_name: jwt_link.jwt_config_form
+  description: 'Configure the JWT link'
+  parent: system.admin_config_services
+  weight: 99

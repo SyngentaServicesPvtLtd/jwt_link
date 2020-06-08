@@ -1,0 +1,9 @@
+jwt_link.jwt_config_form:
+  path: '/admin/config/services/jwt'
+  defaults:
+    _form: '\Drupal\jwt_link\Form\ConfigForm'
+    _title: 'JWT Link Configuration'
+  requirements:
+    _permission: 'administer'
+  options:
+    _admin_route: TRUE
