@@ -1,0 +1,72 @@
+<?php
+
+/**
+ * @file
+ * JWT tokens.
+ */
+
+use Drupal\Core\Render\BubbleableMetadata;
+use Drupal\Core\Url;
+use Drupal\Core\Link;
+use Drupal\jwt_link\JwtToken\JwtToken;
+
+/**
+ * Implements hook_token_info().
+ */
+function jwt_link_token_info() {
+  return array(
+    'types' => array(
+      'jwt' => array(
+        'name' => t('JWT'),
+        'description' => t('Tokens used for JWT.'),
+      ),
+    ),
+    'tokens' => array(
+      'jwt' => array(
+        'jwt-link' => array(
+          'name' => t('JWT link'),
+          'description' => t('Placeholder for JWT encoded url.'),
+        ),
+        'jwt-token' => array(
+          'name' => t('JWT token'),
+          'description' => t('Placeholder for JWT encoded token only.'),
+        ),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_tokens().
+ */
+function jwt_link_tokens($type, $tokens, array $data, array $options, BubbleableMetadata $bubbleable_metadata) {
+  $replacements = array();
+  if ($type === 'jwt') {
+    $jwt_token = new JwtToken();
+    $jwt_config = \Drupal::config('jwt_link.config');
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+        case 'jwt-link':
+          if (\Drupal::currentUser()->isAuthenticated()) {
+            $link_text = $jwt_config->get('jwt_link_title');
+            $jwt_url = $jwt_token->jwtUrl();
+            $replacements[$original] = $jwt_url;
+            // $jwt_encoded_url = Link::fromTextAndUrl($link_text, Url::fromUri($jwt_url));
+            // $replacements[$original] = $jwt_encoded_url->toString();
+          }
+          break;
+
+        case 'jwt-token':
+          if (\Drupal::currentUser()->isAuthenticated()) {
+            $jwt_encoded_token = $jwt_token->jwtEncodedToken();
+            $replacements[$original] = $jwt_encoded_token;
+          }
+          break;
+
+        default:
+      }
+    }
+  }
+  return $replacements;
+}
+
