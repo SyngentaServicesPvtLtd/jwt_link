@@ -1,7 +1,7 @@
 name: JWT Link
 type: module
 description: Creates a JWT link using configured parameters.
-core: 8.x
+core_version_requirement: ^8 || ^9
 package: Web services
 # configure: jwt_link.jwt_config_form
 project: 'jwt_link'
